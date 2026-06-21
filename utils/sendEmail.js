@@ -1,30 +1,39 @@
-const nodemailer = require('nodemailer');
-
 /**
- * Sends an email using Nodemailer and Gmail SMTP service.
+ * Sends an email using the Resend HTTP API.
  * @param {Object} options - Email options
  * @param {string} options.to - Recipient email address
  * @param {string} options.subject - Email subject line
  * @param {string} options.html - HTML content of the email
  */
 const sendEmail = async ({ to, subject, html }) => {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.EMAIL_USER || 'onboarding@resend.dev';
+
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY environment variable is not configured.');
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: `PaceTrack Support <${fromEmail}>`,
+      to: [to],
+      subject,
+      html
+    })
   });
 
-  const mailOptions = {
-    from: `"PaceTrack Support" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html
-  };
+  const data = await response.json();
 
-  const info = await transporter.sendMail(mailOptions);
-  return info;
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to send email via Resend API.');
+  }
+
+  return data;
 };
 
 module.exports = sendEmail;
